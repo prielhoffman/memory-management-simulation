@@ -1,62 +1,202 @@
-# Memory Management Simulation System
+# OS Memory Management Simulator
 
-## Overview
+A systems programming project in **C** that simulates a simplified **operating system memory management environment** with multiple processes, an MMU, a simulated hard disk, page faults, eviction, and synchronized memory snapshots.
 
-The `memory-management-simulation` repository contains a simulation system that mimics the behavior of a multi-process memory management environment. The simulation involves two CPU processes, a Memory Management Unit (MMU), a Hard Disk (HD), and associated modules that manage memory access, page faults, and memory eviction in a simulated environment.
+This project demonstrates how core virtual memory concepts can be modeled using **processes**, **threads**, **inter-process communication**, and **synchronization primitives**.
 
-## Modules Description
+## Tech Stack
 
-### Process 1
-Simulates a CPU process running in an endless loop. The loop sequence involves:
-1. Waiting for `INTER_MEM_ACCS_T` nanoseconds.
-2. Performing a memory access, which can be a write operation with probability `WR_RATE` or a read operation otherwise.
-3. Sending a memory access request to the Memory Management Unit (MMU).
-4. Waiting for an acknowledgment from the MMU.
-5. Repeating from step 1.
+- **Language:** C
+- **Concurrency:** processes, threads, mutexes, condition variables
+- **System Concepts:** memory management, page faults, eviction, MMU behavior, disk access simulation, synchronization
 
-This process discards data and virtual addresses for simplicity. It informs the MMU about the memory access request type (read or write) only.
+## What the Project Does
 
-### Process 2
-Identical to Process 1. Two processes are used to simulate parallel execution and the potential for simultaneous memory access requests.
+The simulator models a simplified memory-management system made of:
 
-### Memory Management Unit (MMU)
-Manages a memory array of `N` pages, where each page can be "empty" (invalid) or "used" (valid). It contains three threads:
+- **two CPU processes** that generate memory access requests
+- a **Memory Management Unit (MMU)** that handles hits, misses, and page replacement
+- a simulated **Hard Disk (HD)** that serves read/write requests
+- periodic **memory snapshots** that show the current state of memory
 
-- **Main Thread**: Handles memory access requests from Processes 1 and 2. It distinguishes between a memory hit or miss and performs appropriate actions based on the access type and hit/miss status.
-- **Evicter Thread**: Manages page eviction when memory is full, following a FIFO clock scheme. It continues evicting pages until the number of used slots is below `USED_SLOTS_TH`.
-- **Printer Thread**: Periodically takes snapshots of the memory status, ensuring no reads/writes occur during the snapshot for consistency. The memory snapshot format indicates the validity and cleanliness of each page.
+The goal of the project is to simulate how a memory subsystem behaves under concurrent access and limited memory capacity. :contentReference[oaicite:1]{index=1}
 
-### Hard Disk (HD)
-Handles requests from the MMU for reading and writing pages to disk. Each operation takes `HD_ACCS_T` nanoseconds to complete, after which an acknowledgment is sent to the requester.
+## Main Features
 
-## Simulation Termination
+- multi-process simulation of CPU memory access
+- MMU logic for handling hits and misses
+- simulated hard-disk read/write operations
+- page eviction when memory becomes full
+- FIFO clock-style eviction policy
+- printer thread for consistent memory snapshots
+- synchronization using mutexes and condition variables
+- configurable timing and workload parameters
 
-- The simulation runs for `SIM_TIME` seconds.
-- Upon successful completion, the message "Successfully finished sim" is printed, and the simulation terminates.
-- In case of errors or upon termination, all mutexes are destroyed, dynamically allocated memory is released, and all processes and threads are terminated properly.
+## System Architecture
 
-## Additional Requirements
+The simulation includes four main components:
 
-- Proper error handling is implemented for system calls like `fork()`, `pthread_create()`, `msgsnd()`, etc.
-- Mutexes and condition variables are initialized to avoid deadlocks and race conditions.
-- Minimal critical sections ensure mutual exclusion without unnecessary overhead.
-- No additional output is printed beyond the specified requirements.
+### 1. CPU Process 1
 
-## How to Run the Simulation
+The first CPU process runs in a loop and periodically generates memory access requests.
 
-1. **Clone the Repository:**
-   ```bash
-   git clone https://github.com/your-username/memory-management-simulation.git
-   cd memory-management-simulation
-   ```
-   
-2. **Compile the Code:**
-   ```bash
-   make
-   ```
+Its behavior includes:
+- waiting for a configured time interval
+- choosing between read and write access
+- sending a request to the MMU
+- waiting for acknowledgment
+- repeating continuously during the simulation window
 
-3. **Run the Simulation:**
-   ```bash
-   ./simulate
-   ```
-4. **Modify Simulation Parameters:** Edit the 'config.h' file to modify parameters like 'INTER_MEM_ACCS_T', 'WR_RATE', 'MEM_WR_T', 'HIT_RATE', 'HD_ACCS_T', 'SIM_TIME', 'USED_SLOTS_TH', etc.
+### 2. CPU Process 2
+
+The second CPU process behaves the same way as the first one.
+
+Using two CPU processes makes it possible to simulate concurrent memory access and contention between multiple request sources. :contentReference[oaicite:2]{index=2}
+
+### 3. Memory Management Unit (MMU)
+
+The MMU is the central component of the system.
+
+It manages a memory array of pages and is responsible for:
+- handling incoming memory access requests
+- determining whether each access is a **hit** or a **miss**
+- triggering disk access when needed
+- marking pages as valid, invalid, clean, or dirty
+- invoking page eviction when memory pressure becomes too high
+
+The MMU includes three internal threads:
+
+- **Main Thread** – processes incoming access requests
+- **Evicter Thread** – frees memory using a FIFO clock-style policy
+- **Printer Thread** – periodically captures consistent snapshots of memory state :contentReference[oaicite:3]{index=3}
+
+### 4. Hard Disk (HD)
+
+The hard disk module simulates secondary storage.
+
+It handles page read/write requests from the MMU and responds after a configured access delay, representing the slower behavior of disk compared to memory. :contentReference[oaicite:4]{index=4}
+
+## Simulation Flow
+
+A typical simulation flow looks like this:
+
+1. CPU processes generate read/write requests
+2. requests are sent to the MMU
+3. the MMU checks whether the target page is already in memory
+4. on a hit, the MMU responds directly
+5. on a miss, the MMU interacts with the simulated hard disk
+6. if memory is full, the evicter thread removes pages according to the policy
+7. the printer thread periodically prints a memory snapshot
+8. the simulation ends after the configured runtime
+
+## Memory Model
+
+The simulator models memory as an array of pages.
+
+Each page may have a status such as:
+- valid or invalid
+- clean or dirty
+
+This allows the simulation to represent key memory-management events such as:
+- page insertion
+- page replacement
+- dirty-page write-back
+- memory pressure and eviction behavior :contentReference[oaicite:5]{index=5}
+
+## Eviction Policy
+
+When the number of used slots grows too high, the evicter thread begins reclaiming memory.
+
+The project uses a **FIFO clock-style eviction policy**, which balances simplicity with realistic page replacement behavior in the simulation. :contentReference[oaicite:6]{index=6}
+
+## What I Implemented
+
+This project focused on simulating operating-systems behavior rather than building an end-user application.
+
+Key implementation areas included:
+
+- concurrent CPU request generation
+- MMU request handling logic
+- hit/miss processing
+- simulated hard-disk interaction
+- eviction control under memory pressure
+- printer thread synchronization for safe snapshots
+- process/thread coordination and cleanup
+- careful synchronization to avoid race conditions and deadlocks
+
+## Why This Project Matters
+
+This project demonstrates practical understanding of:
+
+- virtual memory concepts
+- page faults and eviction
+- concurrency with processes and threads
+- synchronization in systems programming
+- coordination between compute and storage components
+- simulation of operating-systems behavior in C
+
+It is a strong systems project because it combines multiple low-level concepts in one design: memory management, concurrency, synchronization, and inter-component communication.
+
+## How to Run
+
+Clone the repository:
+
+```bash
+git clone https://github.com/your-username/memory-management-simulation.git
+cd memory-management-simulation
+```
+
+Compile the project:
+
+```bash
+make
+```
+
+Run the simulation:
+
+```bash
+./simulate
+```
+
+Modify simulation parameters in `config.h`, including values such as:
+
+- `INTER_MEM_ACCS_T`
+- `WR_RATE`
+- `MEM_WR_T`
+- `HIT_RATE`
+- `HD_ACCS_T`
+- `SIM_TIME`
+- `USED_SLOTS_TH` :contentReference[oaicite:7]{index=7}
+
+## Core Concepts Practiced
+
+- memory management
+- MMU simulation
+- page faults
+- page replacement
+- dirty vs. clean pages
+- processes and threads
+- mutexes and condition variables
+- synchronization
+- systems programming in C
+
+## Key Takeaways
+
+Through this project, I strengthened my understanding of:
+
+- how memory subsystems behave under concurrent access
+- how MMU-style logic handles hits, misses, and disk access
+- how eviction policies affect system behavior
+- how to coordinate processes and threads safely
+- how to design systems simulations that reflect operating-system concepts
+
+## Future Improvements
+
+Possible next steps for the project:
+
+- add more eviction policies for comparison
+- collect and visualize hit/miss statistics
+- log page-fault and eviction events in more detail
+- extend the simulator to model virtual addresses more explicitly
+- add performance measurements across different parameter settings
+- document the internal message flow between components more clearly
